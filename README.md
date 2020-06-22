@@ -8,6 +8,8 @@ These types of resources supported:
 
 * [Linux Virtual Machine](https://www.terraform.io/docs/providers/azurerm/r/linux_virtual_machine.html)
 * [Windows Virtual Machine](https://www.terraform.io/docs/providers/azurerm/r/windows_virtual_machine.html)
+* [Linux VM with SQL Server](https://docs.microsoft.com/en-us/azure/azure-sql/virtual-machines/linux/sql-vm-create-portal-quickstart)
+* [Windows VM with SQL Server](https://docs.microsoft.com/en-us/azure/azure-sql/virtual-machines/windows/sql-vm-create-portal-quickstart)
 * [Public IP](https://www.terraform.io/docs/providers/azurerm/r/public_ip.html)
 * [Network Security Group](https://www.terraform.io/docs/providers/azurerm/r/network_security_group.html)
 * [Availability Set](https://www.terraform.io/docs/providers/azurerm/r/availability_set.html)
