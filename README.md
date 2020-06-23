@@ -84,13 +84,13 @@ There are pre-defined Windows or Linux images available to deploy by setting up 
 
 OS type |Available Pre-defined Images|
 --------|-----------|
-Linux |ubuntu1804, ubuntu1604, centos75, centos77, centos81, coreos
-Windows|windows2012r2dc, windows2016dc, windows2019dc, windows2016dccore
-MS SQL 2017|mssql2017exp, mssql2017dev, mssql2017std, mssql2017ent
-MS SQL 2019|mssql2019dev, mssql2019std, mssql2019ent
-MS SQL 2019 Linux (RHEL8)|mssql2019ent-rhel8, mssql2019std-rhel8, mssql2019dev-rhel8
-MS SQL 2019 Linux (Ubuntu)|mssql2019ent-ubuntu1804, mssql2019std-ubuntu1804, mssql2019dev-ubuntu1804
-MS SQL 2019 Bring your own License (BOYL)|mssql2019ent-byol, mssql2019std-byol
+Linux |`ubuntu1804`, `ubuntu1604`, `centos75`, `centos77`, `centos81`, `coreos`
+Windows|`windows2012r2dc`, `windows2016dc`, `windows2019dc`, `windows2016dccore`
+MS SQL 2017|`mssql2017exp`, `mssql2017dev`, `mssql2017std`, `mssql2017ent`
+MS SQL 2019|`mssql2019dev`, `mssql2019std`, `mssql2019ent`
+MS SQL 2019 Linux (RHEL8)|`mssql2019ent-rhel8`, `mssql2019std-rhel8`, `mssql2019dev-rhel8`
+MS SQL 2019 Linux (Ubuntu)|`mssql2019ent-ubuntu1804`, `mssql2019std-ubuntu1804`, `mssql2019dev-ubuntu1804`
+MS SQL 2019 Bring your own License (BOYL)|`mssql2019ent-byol`, `mssql2019std-byol`
 
 ## Custom Virtual Machine images
 
