@@ -165,13 +165,13 @@ By default, this not enabled and set to disable. To enable the Availability Set 
 
 We can create multiple virtual machines from an Azure managed VM image. A managed VM image contains the information necessary to create a VM, including the OS and data disks. The virtual hard disks (VHDs) that make up the image, including both the OS disks and any data disks, are stored as managed disks. One managed image supports up to 20 simultaneous deployments.
 
-When you use managed VM image, custom image or any other source image reference are not valid. By default, this not enabled and set to disable. To use Azure managed VM Image on this module, set the argument `source_image_id` with valid manage image resource id.
+When you use the managed VM image, custom image, or any other source image reference are not valid. By default, this not enabled and set to use predefined or custom images. To utilize Azure managed VM Image by this module, set the argument `source_image_id` with valid manage image resource id.
 
 ### `license_type` - Bring your own License to your Windows server
 
 Azure Hybrid Benefit for Windows Server allows you to use your on-premises Windows Server licenses and run Windows virtual machines on Azure at a reduced cost. You can use Azure Hybrid Benefit for Windows Server to deploy new virtual machines with Windows OS.
 
-By default, this not enabled and set to disable. To Azure Hybrid Benefit for windows server deployment by this module, set the argument `license_type` to valid values. Possible values are `None`, `Windows_Client` and `Windows_Server`.
+By default, this is set to `None`. To use the Azure Hybrid Benefit for windows server deployment by this module, set the argument `license_type` to valid values. Possible values are `None`, `Windows_Client` and `Windows_Server`.
 
 ### `os_disk_storage_account_type` - Azure managed disks
 
@@ -291,9 +291,9 @@ Name | Description | Type | Default
 `source_image_id`|The ID of an Image which each Virtual Machine should be based on|string|`null`
 `custom_image`|Provide the custom image to this module if the default variants are not sufficient|map(object)|`null`
 `linux_distribution_list`|Pre-defined Azure Linux VM images list|map(object)|`ubuntu1804`
-`linux_distribution_name`|Variable to pick an OS flavor for Linux based Virtual Machine. Possible values are `centos81`, `centos77`, `centos77`, `ubuntu1804`, `ubuntu1604`, `coreos`.|string|`ubuntu1804`
+`linux_distribution_name`|Variable to pick an OS flavor for Linux based Virtual Machine. Possible values are `centos81`, `centos77`, `centos77`, `ubuntu1804`, `ubuntu1604`, `coreos`, `mssql2019ent-rhel8`, `mssql2019std-rhel8`, `mssql2019dev-rhel8`, `mssql2019ent-ubuntu1804`, `mssql2019std-ubuntu1804`, `mssql2019dev-ubuntu1804`|string|`ubuntu1804`
 `windows_distribution_list`|Pre-defined Azure Windows VM images list|map(object)|`"windows2019dc"`
-`windows_distribution_name`|Variable to pick an OS flavor for Windows based VM. Possible values are `windows2012r2dc`, `windows2016dc`, `windows2019dc`, `windows2016dccore`, `mssql2017exp`, `mssql2017dev`, `mssql2017std`, `mssql2017ent`, `mssql2019dev`, `mssql2019std`, `mssql2019ent`, `mssql2019ent-rhel8`, `mssql2019std-rhel8`, `mssql2019dev-rhel8`, `mssql2019ent-ubuntu1804`, `mssql2019std-ubuntu1804`, `mssql2019dev-ubuntu1804`, `mssql2019ent-byol`, `mssql2019std-byol`|string|`"windows2019dc"`
+`windows_distribution_name`|Variable to pick an OS flavor for Windows based VM. Possible values are `windows2012r2dc`, `windows2016dc`, `windows2019dc`, `windows2016dccore`, `mssql2017exp`, `mssql2017dev`, `mssql2017std`, `mssql2017ent`, `mssql2019dev`, `mssql2019std`, `mssql2019ent`, `mssql2019ent-byol`, `mssql2019std-byol`|string|`"windows2019dc"`
 `os_disk_storage_account_type`|The Type of Storage Account for Internal OS Disk. Possible values include Standard_LRS, StandardSSD_LRS and Premium_LRS.|string|`"StandardSSD_LRS"`
 `generate_admin_ssh_key`|Generates a secure private key and encodes it as PEM|string|`true`
 `admin_ssh_key_data`|specify the path to the existing SSH key to authenticate Linux virtual machine|string|`""`
