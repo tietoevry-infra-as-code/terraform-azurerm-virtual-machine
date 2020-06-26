@@ -107,7 +107,7 @@ module "virtual-machine" {
   enable_vm_availability_set = true
   enable_public_ip_address   = true
 
-  customimage = {
+  custom_image = {
       publisher = "myPublisher"
       offer     = "myOffer"
       sku       = "mySKU"
