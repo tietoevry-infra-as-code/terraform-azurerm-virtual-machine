@@ -18,18 +18,18 @@ variable "subnet_name" {
   default     = ""
 }
 
-variable "project_name" {
-  description = "The name of the project."
-  default     = ""
+variable "log_analytics_workspace_name" {
+  description = "The name of log analytics workspace name"
+  default     = null
 }
 
-variable "subscription_type" {
-  description = "Summary description of the purpose of the subscription that contains the resource. Often broken down by deployment environment type or specific workloads"
-  default     = ""
+variable "hub_storage_account_name" {
+  description = "The name of the hub storage account to store logs"
+  default     = null
 }
 
-variable "environment" {
-  description = "The stage of the development lifecycle for the workload that the resource supports"
+variable "virtual_machine_name" {
+  description = "The name of the virtual machine."
   default     = ""
 }
 
@@ -90,12 +90,12 @@ variable "source_image_id" {
 
 variable "custom_image" {
   description = "Provide the custom image to this module if the default variants are not sufficient"
-  type = object({
+  type = map(object({
     publisher = string
     offer     = string
     sku       = string
     version   = string
-  })
+  }))
   default = null
 }
 
@@ -328,6 +328,16 @@ variable "disable_password_authentication" {
   default     = true
 }
 
+variable "admin_username" {
+  description = "The username of the local administrator used for the Virtual Machine."
+  default     = "azureadmin"
+}
+
+variable "admin_password" {
+  description = "The Password which should be used for the local-administrator on this Virtual Machine"
+  default     = null
+}
+
 variable "nsg_inbound_rules" {
   description = "List of network rules to apply to network interface."
   default     = []
@@ -341,6 +351,11 @@ variable "dedicated_host_id" {
 variable "license_type" {
   description = "Specifies the type of on-premise license which should be used for this Virtual Machine. Possible values are None, Windows_Client and Windows_Server."
   default     = "None"
+}
+
+variable "nsg_diag_logs" {
+  description = "NSG Monitoring Category details for Azure Diagnostic setting"
+  default     = ["NetworkSecurityGroupEvent", "NetworkSecurityGroupRuleCounter"]
 }
 
 variable "tags" {

@@ -33,8 +33,20 @@ data "azurerm_subnet" "snet" {
   resource_group_name  = data.azurerm_resource_group.rg.name
 }
 
+data "azurerm_log_analytics_workspace" "logws" {
+  count               = var.log_analytics_workspace_name != null ? 1 : 0
+  name                = var.log_analytics_workspace_name
+  resource_group_name = data.azurerm_resource_group.rg.name
+}
+
+data "azurerm_storage_account" "storeacc" {
+  count               = var.hub_storage_account_name != null ? 1 : 0
+  name                = var.hub_storage_account_name
+  resource_group_name = data.azurerm_resource_group.rg.name
+}
+
 resource "random_password" "passwd" {
-  count       = var.disable_password_authentication != true || var.os_flavor == "windows" ? 1 : 0
+  count       = var.disable_password_authentication != true || var.os_flavor == "windows" && var.admin_password == null ? 1 : 0
   length      = 24
   min_upper   = 4
   min_lower   = 2
@@ -46,18 +58,28 @@ resource "random_password" "passwd" {
   }
 }
 
+resource "random_string" "str" {
+  count   = var.enable_public_ip_address == true ? var.instances_count : 0
+  length  = 6
+  special = false
+  upper   = false
+  keepers = {
+    domain_name_label = var.virtual_machine_name
+  }
+}
+
 #-----------------------------------
 # Public IP for Virtual Machine
 #-----------------------------------
 resource "azurerm_public_ip" "pip" {
   count               = var.enable_public_ip_address == true ? var.instances_count : 0
-  name                = lower("pip-vm-${var.project_name}-${var.location}-${var.environment}-0${count.index + 1}")
+  name                = lower("pip-vm-${var.virtual_machine_name}-${data.azurerm_resource_group.rg.location}-0${count.index + 1}")
   location            = data.azurerm_resource_group.rg.location
   resource_group_name = data.azurerm_resource_group.rg.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = format("vm-%s%s-pip-0${count.index + 1}", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")))
-  tags                = merge({ "ResourceName" = lower("pip-lbe-${var.project_name}-${var.location}") }, var.tags, )
+  domain_name_label   = format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), random_string.str[count.index].result)
+  tags                = merge({ "ResourceName" = lower("pip-vm-${var.virtual_machine_name}-${data.azurerm_resource_group.rg.location}-0${count.index + 1}") }, var.tags, )
 }
 
 #---------------------------------------
@@ -65,43 +87,43 @@ resource "azurerm_public_ip" "pip" {
 #---------------------------------------
 resource "azurerm_network_interface" "nic" {
   count                         = var.instances_count
-  name                          = lower("nic-${format("vm%s%s%s", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")), count.index + 1)}")
+  name                          = var.instances_count == 1 ? lower("nic-${format("vm%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")))}") : lower("nic-${format("vm%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)}")
   resource_group_name           = data.azurerm_resource_group.rg.name
   location                      = data.azurerm_resource_group.rg.location
   dns_servers                   = var.dns_servers
   enable_ip_forwarding          = var.enable_ip_forwarding
   enable_accelerated_networking = var.enable_accelerated_networking
-  tags                          = merge({ "ResourceName" = lower("nic-${format("vm%s%s%s", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")), count.index + 1)}") }, var.tags, )
+  tags                          = merge({ "ResourceName" = var.instances_count == 1 ? lower("nic-${format("vm%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")))}") : lower("nic-${format("vm%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)}") }, var.tags, )
 
   ip_configuration {
-    name                          = lower("ipconig-${format("vm%s%s%s", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")), count.index + 1)}")
+    name                          = lower("ipconig-${format("vm%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)}")
     primary                       = true
     subnet_id                     = data.azurerm_subnet.snet.id
     private_ip_address_allocation = var.private_ip_address_allocation_type
-    private_ip_address            = var.private_ip_address_allocation_type == "Static" ? var.private_ip_address : null
+    private_ip_address            = var.private_ip_address_allocation_type == "Static" ? element(concat(var.private_ip_address, [""]), count.index) : null
     public_ip_address_id          = var.enable_public_ip_address == true ? element(concat(azurerm_public_ip.pip.*.id, [""]), count.index) : null
   }
 }
 
 resource "azurerm_availability_set" "aset" {
   count                        = var.enable_vm_availability_set ? 1 : 0
-  name                         = lower("avail-${var.project_name}-${var.location}-${var.environment}")
+  name                         = lower("avail-${var.virtual_machine_name}-${data.azurerm_resource_group.rg.location}")
   resource_group_name          = data.azurerm_resource_group.rg.name
   location                     = data.azurerm_resource_group.rg.location
   platform_fault_domain_count  = 2
   platform_update_domain_count = 2
   managed                      = true
-  tags                         = merge({ "ResourceName" = lower("avail-${var.project_name}-${var.location}-${var.environment}") }, var.tags, )
+  tags                         = merge({ "ResourceName" = lower("avail-${var.virtual_machine_name}-${data.azurerm_resource_group.rg.location}") }, var.tags, )
 }
 
 #---------------------------------------------------------------
 # Network security group for Virtual Machine Network Interface
 #---------------------------------------------------------------
 resource "azurerm_network_security_group" "nsg" {
-  name                = lower("nsg_${var.project_name}_${var.environment}_${var.location}_in")
+  name                = lower("nsg_${var.virtual_machine_name}_${data.azurerm_resource_group.rg.location}_in")
   resource_group_name = data.azurerm_resource_group.rg.name
   location            = data.azurerm_resource_group.rg.location
-  tags                = merge({ "ResourceName" = lower("nsg_${var.project_name}_${var.environment}_${var.location}_in") }, var.tags, )
+  tags                = merge({ "ResourceName" = lower("nsg_${var.virtual_machine_name}_${data.azurerm_resource_group.rg.location}_in") }, var.tags, )
 }
 
 resource "azurerm_network_security_rule" "nsg_rule" {
@@ -133,21 +155,22 @@ resource "azurerm_network_interface_security_group_association" "nsgassoc" {
 #---------------------------------------
 resource "azurerm_linux_virtual_machine" "linux_vm" {
   count                      = var.os_flavor == "linux" ? var.instances_count : 0
-  name                       = format("vm-linux-%s%s%s", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")), count.index + 1)
+  name                       = var.instances_count == 1 ? var.virtual_machine_name : format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)
   resource_group_name        = data.azurerm_resource_group.rg.name
   location                   = data.azurerm_resource_group.rg.location
   size                       = var.virtual_machine_size
-  admin_username             = "tietoadmin"
-  admin_password             = var.disable_password_authentication != true ? element(concat(random_password.passwd.*.result, [""]), 0) : null
+  admin_username             = var.admin_username
+  admin_password             = var.disable_password_authentication != true && var.admin_password == null ? element(concat(random_password.passwd.*.result, [""]), 0) : var.admin_password
   network_interface_ids      = [element(concat(azurerm_network_interface.nic.*.id, [""]), count.index)]
   source_image_id            = var.source_image_id != null ? var.source_image_id : null
   provision_vm_agent         = true
   allow_extension_operations = true
   dedicated_host_id          = var.dedicated_host_id
   availability_set_id        = var.enable_vm_availability_set == true ? element(concat(azurerm_availability_set.aset.*.id, [""]), 0) : null
+  tags                       = merge({ "ResourceName" = var.instances_count == 1 ? var.virtual_machine_name : format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1) }, var.tags, )
 
   admin_ssh_key {
-    username   = "tietoadmin"
+    username   = var.admin_username
     public_key = var.generate_admin_ssh_key == true && var.os_flavor == "linux" ? tls_private_key.rsa[0].public_key_openssh : file(var.admin_ssh_key_data)
   }
 
@@ -172,13 +195,13 @@ resource "azurerm_linux_virtual_machine" "linux_vm" {
 #---------------------------------------
 resource "azurerm_windows_virtual_machine" "win_vm" {
   count                      = var.os_flavor == "windows" ? var.instances_count : 0
-  name                       = format("vm-win-%s%s%s", lower(replace(var.project_name, "/[[:^alnum:]]/", "")), lower(replace(var.environment, "/[[:^alnum:]]/", "")), count.index + 1)
-  computer_name              = format("%s-vm", "windows") # not more than 15 characters
+  name                       = var.instances_count == 1 ? var.virtual_machine_name : format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)
+  computer_name              = var.instances_count == 1 ? var.virtual_machine_name : format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1)
   resource_group_name        = data.azurerm_resource_group.rg.name
   location                   = data.azurerm_resource_group.rg.location
   size                       = var.virtual_machine_size
-  admin_username             = "tietoadmin"
-  admin_password             = element(concat(random_password.passwd.*.result, [""]), 0)
+  admin_username             = var.admin_username
+  admin_password             = var.admin_password == null ? element(concat(random_password.passwd.*.result, [""]), 0) : var.admin_password
   network_interface_ids      = [element(concat(azurerm_network_interface.nic.*.id, [""]), count.index)]
   source_image_id            = var.source_image_id != null ? var.source_image_id : null
   provision_vm_agent         = true
@@ -186,6 +209,7 @@ resource "azurerm_windows_virtual_machine" "win_vm" {
   dedicated_host_id          = var.dedicated_host_id
   license_type               = var.license_type
   availability_set_id        = var.enable_vm_availability_set == true ? element(concat(azurerm_availability_set.aset.*.id, [""]), 0) : null
+  tags                       = merge({ "ResourceName" = var.instances_count == 1 ? var.virtual_machine_name : format("%s%s", lower(replace(var.virtual_machine_name, "/[[:^alnum:]]/", "")), count.index + 1) }, var.tags, )
 
   dynamic "source_image_reference" {
     for_each = var.source_image_id != null ? [] : [1]
@@ -200,6 +224,80 @@ resource "azurerm_windows_virtual_machine" "win_vm" {
   os_disk {
     storage_account_type = var.os_disk_storage_account_type
     caching              = "ReadWrite"
+  }
+}
+
+#--------------------------------------------------------------
+# Azure Log Analytics Workspace Agent Installation for windows
+#--------------------------------------------------------------
+resource "azurerm_virtual_machine_extension" "omsagentwin" {
+  count                      = var.log_analytics_workspace_name != null && var.os_flavor == "windows" ? var.instances_count : 0
+  name                       = var.instances_count == 1 ? "OmsAgentForWindows" : format("%s%s", "OmsAgentForWindows", count.index + 1)
+  virtual_machine_id         = azurerm_windows_virtual_machine.win_vm[count.index].id
+  publisher                  = "Microsoft.EnterpriseCloud.Monitoring"
+  type                       = "MicrosoftMonitoringAgent"
+  type_handler_version       = "1.0"
+  auto_upgrade_minor_version = true
+
+  settings = <<SETTINGS
+    {
+      "workspaceId": "${data.azurerm_log_analytics_workspace.logws.0.workspace_id}"
+    }
+  SETTINGS
+
+  protected_settings = <<PROTECTED_SETTINGS
+    {
+    "workspaceKey": "${data.azurerm_log_analytics_workspace.logws.0.primary_shared_key}"
+    }
+  PROTECTED_SETTINGS
+}
+
+#--------------------------------------------------------------
+# Azure Log Analytics Workspace Agent Installation for Linux
+#--------------------------------------------------------------
+resource "azurerm_virtual_machine_extension" "omsagentlinux" {
+  count                      = var.log_analytics_workspace_name != null && var.os_flavor == "linux" ? var.instances_count : 0
+  name                       = var.instances_count == 1 ? "OmsAgentForLinux" : format("%s%s", "OmsAgentForLinux", count.index + 1)
+  virtual_machine_id         = azurerm_linux_virtual_machine.linux_vm[count.index].id
+  publisher                  = "Microsoft.EnterpriseCloud.Monitoring"
+  type                       = "OmsAgentForLinux"
+  type_handler_version       = "1.13"
+  auto_upgrade_minor_version = true
+
+  settings = <<SETTINGS
+    {
+      "workspaceId": "${data.azurerm_log_analytics_workspace.logws.0.workspace_id}"
+    }
+  SETTINGS
+
+  protected_settings = <<PROTECTED_SETTINGS
+    {
+    "workspaceKey": "${data.azurerm_log_analytics_workspace.logws.0.primary_shared_key}"
+    }
+  PROTECTED_SETTINGS
+}
+
+
+#--------------------------------------
+# azurerm monitoring diagnostics 
+#--------------------------------------
+resource "azurerm_monitor_diagnostic_setting" "nsg" {
+  count                      = var.log_analytics_workspace_name != null && var.hub_storage_account_name != null ? 1 : 0
+  name                       = lower("nsg-${var.virtual_machine_name}-diag")
+  target_resource_id         = azurerm_network_security_group.nsg.id
+  storage_account_id         = data.azurerm_storage_account.storeacc.0.id
+  log_analytics_workspace_id = data.azurerm_log_analytics_workspace.logws.0.id
+
+  dynamic "log" {
+    for_each = var.nsg_diag_logs
+    content {
+      category = log.value
+      enabled  = true
+
+      retention_policy {
+        enabled = false
+      }
+    }
   }
 }
 

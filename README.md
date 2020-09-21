@@ -2,8 +2,6 @@
 
 This terraform module is designed to deploy azure Windows or Linux virtual machines with Public IP, Availability Set and Network Security Group support.
 
-This module also generates SSH2 Key pair for Linux servers by default, however, it is only recommended to use for dev environment. For production environments, please generate your own SSH2 key with a passphrase and input the key by providing the path to the argument `admin_ssh_key_data`.
-
 These types of resources supported:
 
 * [Linux Virtual Machine](https://www.terraform.io/docs/providers/azurerm/r/linux_virtual_machine.html)
@@ -14,44 +12,47 @@ These types of resources supported:
 * [Network Security Group](https://www.terraform.io/docs/providers/azurerm/r/network_security_group.html)
 * [Availability Set](https://www.terraform.io/docs/providers/azurerm/r/availability_set.html)
 * [SSH2 Key generation for Dev Environments](https://www.terraform.io/docs/providers/tls/r/private_key.html)
+* [Azure Monitoring Diagnostics](https://www.terraform.io/docs/providers/azurerm/r/monitor_diagnostic_setting.html)
 
 ## Module Usage
 
 ```hcl
 module "virtual-machine" {
-  source = "github.com/tietoevry-infra-as-code/terraform-azurerm-virtual-machine?ref=v1.0.0"
+  source  = "kumarvna/virtual-machine/azurerm"
+  version = "2.0.0"
 
   # Resource Group, location, VNet and Subnet details
-  resource_group_name  = "rg-hub-tieto-internal-shared-westeurope-001"
+  resource_group_name  = "rg-hub-demo-internal-shared-westeurope-001"
   location             = "westeurope"
-  virtual_network_name = "vnet-tieto-internal-shared-dev-westeurope-01"
-  subnet_name          = "snet-management-shared-westeurope"
+  virtual_network_name = "vnet-default-hub-westeurope"
+  subnet_name          = "snet-management-default-hub-westeurope"
+  virtual_machine_name = "vm-linux"
 
-  # (Required) Project_Name, Subscription_type and environment are must to create resource names.
-  # Project name length should be `15` and contian Alphanumerics and hyphens only.
-  project_name      = "tieto-internal"
-  subscription_type = "shared"
-  environment       = "dev"
+  # (Optional) To enable Azure Monitoring and install log analytics agents
+  log_analytics_workspace_name = var.log_analytics_workspace_id
+  hub_storage_account_name     = var.hub_storage_account_id
 
   # This module support multiple Pre-Defined Linux and Windows Distributions.
   # Linux images: ubuntu1804, ubuntu1604, centos75, centos77, centos81, coreos
   # Windows Images: windows2012r2dc, windows2016dc, windows2019dc, windows2016dccore
   # MSSQL 2017 images: mssql2017exp, mssql2017dev, mssql2017std, mssql2017ent
   # MSSQL 2019 images: mssql2019dev, mssql2019std, mssql2019ent
-  # MSSQL 2019 Linux Images:
+  # MSSQL 2019 Linux OS Images:
   # RHEL8 images: mssql2019ent-rhel8, mssql2019std-rhel8, mssql2019dev-rhel8
   # Ubuntu images: mssql2019ent-ubuntu1804, mssql2019std-ubuntu1804, mssql2019dev-ubuntu1804
   # Bring your own License (BOYL) images: mssql2019ent-byol, mssql2019std-byol
   os_flavor                  = "linux"
   linux_distribution_name    = "ubuntu1804"
+  virtual_machine_size       = "Standard_A2_v2"
+  generate_admin_ssh_key     = false
+  admin_ssh_key_data         = "~/.ssh/id_rsa.pub"
   instances_count            = 2
   enable_vm_availability_set = true
-  enable_public_ip_address   = true
 
   # Network Seurity group port allow definitions for each Virtual Machine
   # NSG association to be added automatically for all network interfaces.
   # SSH port 22 and 3389 is exposed to the Internet recommended for only testing.
-  # For production environments, we recommend using a VPN or private connection
+  # For production environments, recommended to use a VPN or private connection.
   nsg_inbound_rules = [
     {
       name                   = "ssh"
@@ -60,8 +61,8 @@ module "virtual-machine" {
     },
 
     {
-      name                   = "https"
-      destination_port_range = "443"
+      name                   = "http"
+      destination_port_range = "80"
       source_address_prefix  = "*"
     },
   ]
@@ -69,7 +70,7 @@ module "virtual-machine" {
   # Adding TAG's to your Azure resources (Required)
   # ProjectName and Env are already declared above, to use them here, create a varible.
   tags = {
-    ProjectName  = "tieto-internal"
+    ProjectName  = "demo-internal"
     Env          = "dev"
     Owner        = "user@example.com"
     BusinessUnit = "CORP"
@@ -78,12 +79,20 @@ module "virtual-machine" {
 }
 ```
 
+## Default Local Administrator and the Password
+
+This module utilizes __`azureadmin`__ as a local administrator on virtual machines. If you want to you use custom username, then specify the same by setting up the argument `admin_username` with valid user string.
+
+By default, this module generates a strong password for all virtual machines. If you want to set the custom password, specify the argument `admin_password` with valid string.
+
+This module also generates SSH2 Key pair for Linux servers by default, however, it is only recommended to use for dev environment. For production environments, please generate your own SSH2 key with a passphrase and input the key by providing the path to the argument `admin_ssh_key_data`.
+
 ## Pre-Defined Windows and Linux VM Images
 
 There are pre-defined Windows or Linux images available to deploy by setting up the argument `linux_distribution_name` or `windows_distribution_name` with this module.
 
 OS type |Available Pre-defined Images|
---------|-----------|
+--------|----------------------------|
 Linux |`ubuntu1804`, `ubuntu1604`, `centos75`, `centos77`, `centos81`, `coreos`
 Windows|`windows2012r2dc`, `windows2016dc`, `windows2019dc`, `windows2016dccore`
 MS SQL 2017|`mssql2017exp`, `mssql2017dev`, `mssql2017std`, `mssql2017ent`
@@ -98,7 +107,8 @@ If the pre-defined Windows or Linux variants are not sufficient then, you can sp
 
 ```hcl
 module "virtual-machine" {
-  source = "github.com/tietoevry-infra-as-code/terraform-azurerm-virtual-machine?ref=v1.0.0"
+  source  = "kumarvna/virtual-machine/azurerm"
+  version = "2.0.0"
 
   # .... omitted
 
@@ -188,18 +198,17 @@ In the Source and Destination columns, `VirtualNetwork`, `AzureLoadBalancer`, an
 *You cannot remove the default rules, but you can override them by creating rules with higher priorities.*
 
 ```hcl
-module "vnet-hub" {
-  source = "github.com/tietoevry-infra-as-code/terraform-azurerm-virtual-machine?ref=v1.0.0"
+module "virtual-machine" {
+  source  = "kumarvna/virtual-machine/azurerm"
+  version = "2.0.0"
 
   # .... omitted
   
   os_flavor                  = "linux"
   linux_distribution_name    = "ubuntu1804"
+  virtual_machine_size       = "Standard_A2_v2"  
   generate_admin_ssh_key     = false
   admin_ssh_key_data         = "./id_rsa.pub"
-  instances_count            = 2
-  enable_vm_availability_set = true
-  enable_public_ip_address   = true
 
   nsg_inbound_rules = [
     {
@@ -249,16 +258,17 @@ End Date of the Project|Date when this application, workload, or service is plan
 > This module allows you to manage the above metadata tags directly or as an variable using `variables.tf`. All Azure resources which support tagging can be tagged by specifying key-values in argument `tags`. Tag `ResourceName` is added automatically to all resources.
 
 ```hcl
-module "vnet-hub" {
-  source = "github.com/tietoevry-infra-as-code/terraform-azurerm-virtual-machine?ref=v1.0.0"
+module "virtual-machine" {
+  source  = "kumarvna/virtual-machine/azurerm"
+  version = "2.0.0"
 
   # Resource Group, location, VNet and Subnet details
-  resource_group_name  = "rg-hub-tieto-internal-shared-westeurope-001"
+  resource_group_name  = "rg-hub-demo-internal-shared-westeurope-001"
 
   # ... omitted
 
   tags = {
-    ProjectName  = "tieto-internal"
+    ProjectName  = "demo-internal"
     Env          = "dev"
     Owner        = "user@example.com"
     BusinessUnit = "CORP"
@@ -275,9 +285,7 @@ Name | Description | Type | Default
 `location`|The location of the resource group in which resources are created|string | `""`
 `virtual_network_name`|The name of the virtual network|string |`""`
 `subnet_name`|The name of the subnet to use in VM scale set|string |`""`
-`project_name`|The name of the project|string | `""`
-`subscription_type`|Summary description of the purpose of the subscription that contains the resource. Often broken down by deployment environment type or specific workloads. For example, Training, FINANCE, MARKETING, CORP, SHARED|string |`""`
-`environment`|The stage of the development lifecycle for the workload that the resource supports|list |`{}`
+`virtual_machine_name`|The name of the virtual machine|string | `""`
 `os_flavor`|Specify the flavor of the operating system image to deploy Virtual Machine. Possible values are `windows` and `linux`|string |`"windows"`
 `virtual_machine_size`|The Virtual Machine SKU for the Virtual Machine|string|`"Standard_A2_v2"`
 `instances_count`|The number of Virtual Machines required|number|`1`
@@ -297,6 +305,8 @@ Name | Description | Type | Default
 `os_disk_storage_account_type`|The Type of Storage Account for Internal OS Disk. Possible values include Standard_LRS, StandardSSD_LRS and Premium_LRS.|string|`"StandardSSD_LRS"`
 `generate_admin_ssh_key`|Generates a secure private key and encodes it as PEM|string|`true`
 `admin_ssh_key_data`|specify the path to the existing SSH key to authenticate Linux virtual machine|string|`""`
+`admin_username`|The username of the local administrator used for the Virtual Machine|string|`"azureadmin"`
+`admin_password`|The Password which should be used for the local-administrator on this Virtual Machine|string|`null`
 `disable_password_authentication`|Should Password Authentication be disabled on this Virtual Machine. Applicable to Linux Virtual machine|string|`true`
 `nsg_inbound_rules`|List of network rules to apply to network interface|object|`{}`
 `dedicated_host_id`|The ID of a Dedicated Host where this machine should be run on|string|`null`
@@ -325,7 +335,7 @@ Name | Description | Type | Default
 
 ## Authors
 
-Module is maintained by [Kumaraswamy Vithanala](mailto:kumaraswamy.vithanala@tieto.com) with the help from other awesome contributors.
+Module is maintained by [Kumaraswamy Vithanala](mailto:kumarvna@gmail.com) with the help from other awesome contributors.
 
 ## Other resources
 
